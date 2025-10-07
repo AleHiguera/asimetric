@@ -22,17 +22,40 @@ public class UnCliente implements Runnable {
             try {
                 mensaje = entrada.readUTF();
                 if (mensaje.startsWith("@")){
-                  String[]partes= mensaje.split("");
-                 String aQuien = partes[0].substring(1);
-                 UnCliente cliente = ServidorMulti.clientes.get(aQuien);
-                 cliente.salida.writeUTF(mensaje);
+                    int indicePrimerEspacio = mensaje.indexOf(" ");
+                    if (indicePrimerEspacio > 0) {
+                        String listaDestinatariosConArroba = mensaje.substring(0, indicePrimerEspacio).trim();
+                        String cuerpoMensaje = mensaje.substring(indicePrimerEspacio + 1).trim();
+                        String listaDestinatarios = listaDestinatariosConArroba.substring(1);
+                        String[] nombresDestinatarios = listaDestinatarios.split(",");
+                        boolean enviado = false;
+                        for (String nombre : nombresDestinatarios) {
+                            String nombreLimpio = nombre.trim();
+                            UnCliente cliente = ServidorMulti.clientes.get(nombreLimpio);
+
+                            if (cliente != null) {
+                                cliente.salida.writeUTF(mensaje);
+                                enviado = true;
+                            }
+                        }
+                        if (!enviado) {
+                            System.err.println("Advertencia: No se encontró a ningún destinatario para: " + listaDestinatarios);
+                        }
+
+                    } else {
+                        String aQuien = mensaje.substring(1).trim();
+                        UnCliente cliente = ServidorMulti.clientes.get(aQuien);
+
+                        if (cliente != null) {
+                            cliente.salida.writeUTF(mensaje);
+                        }
+                    }
 
                 }else {
-                for ( UnCliente cliente : ServidorMulti.clientes.values()){
-                    cliente.salida.writeUTF(mensaje);
-                }  }
+                    for ( UnCliente cliente : ServidorMulti.clientes.values()){
+                        cliente.salida.writeUTF(mensaje);
+                    }  }
             } catch (IOException ex) {
-
             }
         }
     }
