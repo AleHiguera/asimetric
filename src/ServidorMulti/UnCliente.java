@@ -5,14 +5,15 @@ import java.net.Socket;
 public class UnCliente implements Runnable {
 
     final DataOutputStream salida;
-
     final BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
-
     final DataInputStream entrada;
 
-    UnCliente(Socket s) throws IOException {
+    public final String nombreCliente;
+
+    UnCliente(Socket s, String nombre) throws IOException {
         salida = new DataOutputStream(s.getOutputStream());
         entrada = new DataInputStream(s.getInputStream());
+        this.nombreCliente = nombre;
     }
 
     @Override
@@ -21,23 +22,30 @@ public class UnCliente implements Runnable {
         while ( true ){
             try {
                 mensaje = entrada.readUTF();
+                String mensajeConRemitente = this.nombreCliente + ": " + mensaje;
+
                 if (mensaje.startsWith("@")){
                     int indicePrimerEspacio = mensaje.indexOf(" ");
+
                     if (indicePrimerEspacio > 0) {
                         String listaDestinatariosConArroba = mensaje.substring(0, indicePrimerEspacio).trim();
                         String cuerpoMensaje = mensaje.substring(indicePrimerEspacio + 1).trim();
+                        String mensajeAGrupo = "(PRIVADO) " + this.nombreCliente + ": " + cuerpoMensaje;
+
                         String listaDestinatarios = listaDestinatariosConArroba.substring(1);
                         String[] nombresDestinatarios = listaDestinatarios.split(",");
                         boolean enviado = false;
+
                         for (String nombre : nombresDestinatarios) {
                             String nombreLimpio = nombre.trim();
                             UnCliente cliente = ServidorMulti.clientes.get(nombreLimpio);
 
                             if (cliente != null) {
-                                cliente.salida.writeUTF(mensaje);
+                                cliente.salida.writeUTF(mensajeAGrupo);
                                 enviado = true;
                             }
                         }
+
                         if (!enviado) {
                             System.err.println("Advertencia: No se encontró a ningún destinatario para: " + listaDestinatarios);
                         }
@@ -47,14 +55,15 @@ public class UnCliente implements Runnable {
                         UnCliente cliente = ServidorMulti.clientes.get(aQuien);
 
                         if (cliente != null) {
-                            cliente.salida.writeUTF(mensaje);
+                            cliente.salida.writeUTF(mensajeConRemitente);
                         }
                     }
 
                 }else {
                     for ( UnCliente cliente : ServidorMulti.clientes.values()){
-                        cliente.salida.writeUTF(mensaje);
-                    }  }
+                        cliente.salida.writeUTF(mensajeConRemitente);
+                    }
+                }
             } catch (IOException ex) {
             }
         }

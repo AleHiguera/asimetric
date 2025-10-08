@@ -10,11 +10,12 @@ public class ServidorMulti {
         int contador = 0;
         while (true) {
             Socket s = servidorSocket.accept();
-            UnCliente unCliente = new UnCliente(s);
+            String nombre = Integer.toString(contador);
+            UnCliente unCliente = new UnCliente(s, nombre);
             Thread hilo = new Thread(unCliente);
-            clientes.put(Integer.toString(contador), unCliente);
+            clientes.put(nombre, unCliente);
             hilo.start();
-            System.out.println("Se conecto el chango #"+ contador);
+            System.out.println("Se conecto el chango #"+ contador + " (ID: " + nombre + ")");
             contador++;
         }
     }
