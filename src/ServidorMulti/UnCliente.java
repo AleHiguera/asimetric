@@ -5,9 +5,7 @@ import java.net.Socket;
 public class UnCliente implements Runnable {
 
     final DataOutputStream salida;
-    final BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
     final DataInputStream entrada;
-
     public final String nombreCliente;
 
     UnCliente(Socket s, String nombre) throws IOException {
@@ -30,7 +28,7 @@ public class UnCliente implements Runnable {
                     if (indicePrimerEspacio > 0) {
                         String listaDestinatariosConArroba = mensaje.substring(0, indicePrimerEspacio).trim();
                         String cuerpoMensaje = mensaje.substring(indicePrimerEspacio + 1).trim();
-                        String mensajeAGrupo = "(PRIVADO) " + this.nombreCliente + ": " + cuerpoMensaje;
+                        String mensajeAGrupo = "(PRIVADO de " + this.nombreCliente + ") " + cuerpoMensaje;
 
                         String listaDestinatarios = listaDestinatariosConArroba.substring(1);
                         String[] nombresDestinatarios = listaDestinatarios.split(",");
@@ -65,6 +63,9 @@ public class UnCliente implements Runnable {
                     }
                 }
             } catch (IOException ex) {
+                System.out.println(this.nombreCliente + " se ha desconectado.");
+                ServidorMulti.clientes.remove(this.nombreCliente);
+                break;
             }
         }
     }
