@@ -12,14 +12,11 @@ public class ClienteMulti {
         System.out.print("Introduce tu nombre de usuario: ");
         String nombreUsuario = tecladoInicial.readLine();
 
-        // **CORRECCIÓN DE IP:** Usar 127.0.0.1 (localhost) si el servidor está en la misma PC
         Socket s = new Socket("localhost",8080);
 
-        // 1. Enviar el nombre de usuario
         DataOutputStream salidaInicial = new DataOutputStream(s.getOutputStream());
         salidaInicial.writeUTF(nombreUsuario);
 
-        // 2. Iniciar los hilos de comunicación
         ParaMandar paraMandar = new ParaMandar(s);
         Thread hiloParaMandar = new Thread(paraMandar);
         hiloParaMandar.start();
