@@ -21,7 +21,6 @@ public class ParaMandar implements Runnable{
                 mensaje = teclado.readLine();
                 salida.writeUTF(mensaje);
             } catch (IOException ex) {
-                System.err.println("Error de conexión al enviar mensaje. Terminando.");
                 break;
             }
         }
