@@ -5,9 +5,11 @@ import java.net.Socket;
 
 public class ParaRecibir implements Runnable{
     final DataInputStream entrada;
+    private final Socket socketCliente;
 
     public ParaRecibir(Socket s) throws IOException {
         entrada = new DataInputStream(s.getInputStream());
+        this.socketCliente = s;
     }
 
     @Override
@@ -20,7 +22,14 @@ public class ParaRecibir implements Runnable{
                 System.out.print("\r" + mensaje + "\n> ");
 
             } catch (IOException ex) {
-                System.out.println("\n[ERROR] Conexión con el servidor perdida. Terminando...");
+                System.out.println("\n[DESCONEXIÓN] Conexión con el servidor perdida o finalizada. Volviendo al menú...");
+                try {
+                    if (socketCliente != null && !socketCliente.isClosed()) {
+                        socketCliente.close();
+                    }
+                } catch (IOException ignored) {
+
+                }
                 break;
             }
         }
