@@ -17,17 +17,14 @@ public class ParaMandar implements Runnable{
 
     @Override
     public void run() {
-        while ( true ){
-            String mensaje;
+        while (true) {
             try {
-                mensaje = teclado.readLine();
+                String mensaje = teclado.readLine();
                 String comando = mensaje.trim().toLowerCase();
+
                 if (comando.equals("/iniciar") || comando.equals("/registro")) {
                     System.out.println("\n[COMANDO DETECTADO] Cerrando conexión para volver al menú de autenticación...");
-
-                    if (!socketCliente.isClosed()) {
-                        socketCliente.close();
-                    }
+                    if (!socketCliente.isClosed()) socketCliente.close();
                     break;
                 }
 
