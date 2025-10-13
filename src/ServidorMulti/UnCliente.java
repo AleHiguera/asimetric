@@ -1,4 +1,5 @@
 package ServidorMulti;
+
 import java.io.*;
 import java.net.Socket;
 
@@ -7,11 +8,14 @@ public class UnCliente implements Runnable {
     final DataOutputStream salida;
     final DataInputStream entrada;
     public final String nombreCliente;
+    public final boolean esInvitado;
+    private int mensajesGratisRestantes = 3;
 
-    UnCliente(Socket s, String nombre) throws IOException {
+    UnCliente(Socket s, String nombre, boolean esInvitado) throws IOException {
         salida = new DataOutputStream(s.getOutputStream());
         entrada = new DataInputStream(s.getInputStream());
         this.nombreCliente = nombre;
+        this.esInvitado = esInvitado;
     }
 
     @Override
@@ -21,6 +25,26 @@ public class UnCliente implements Runnable {
             try {
                 mensaje = entrada.readUTF();
                 String mensajeConRemitente = this.nombreCliente + ": " + mensaje;
+                if (esInvitado) {
+                    String comando = mensaje.trim().toLowerCase();
+                    if (comando.equals("/iniciar") || comando.equals("/registro")) {
+                        continue;
+                    }
+
+                    if (mensajesGratisRestantes <= 0) {
+                        this.salida.writeUTF("<<SERVIDOR>>: Agotaste tus 3 mensajes gratis. Escribe '/iniciar' o '/registro' para continuar.");
+                        this.salida.flush();
+                        continue;
+                    }
+
+                    mensajesGratisRestantes--;
+
+                    if (mensajesGratisRestantes > 0) {
+                        this.salida.writeUTF("<<SERVIDOR>>: Te quedan:" + mensajesGratisRestantes + " mensajes gratis.");
+                    } else {
+                        this.salida.writeUTF("<<SERVIDOR>>: Este fue tu último mensaje gratis. Escribe '/iniciar' o '/registro' para continuar chateando.");
+                    }
+                }
 
                 if (mensaje.startsWith("@")){
                     int indicePrimerEspacio = mensaje.indexOf(" ");
@@ -40,21 +64,20 @@ public class UnCliente implements Runnable {
 
                             if (cliente != null) {
                                 cliente.salida.writeUTF(mensajeAGrupo);
+                                cliente.salida.flush();
                                 enviado = true;
                             }
                         }
 
                         if (!enviado) {
                             System.err.println("Advertencia: No se encontró a ningún destinatario para: " + listaDestinatarios);
+                            this.salida.writeUTF("<<SERVIDOR>>: Error, no se encontró a los destinatarios: " + listaDestinatarios);
+                            this.salida.flush();
                         }
 
                     } else {
-                        String aQuien = mensaje.substring(1).trim();
-                        UnCliente cliente = ServidorMulti.clientes.get(aQuien);
-
-                        if (cliente != null) {
-                            cliente.salida.writeUTF(mensajeConRemitente);
-                        }
+                        this.salida.writeUTF("<<SERVIDOR>>: Formato de mensaje privado incorrecto. Debe ser: @nombre Mensaje.");
+                        this.salida.flush();
                     }
 
                 }else {
@@ -62,12 +85,21 @@ public class UnCliente implements Runnable {
 
                         if (cliente != this) {
                             cliente.salida.writeUTF(mensajeConRemitente);
+                            cliente.salida.flush();
                         }
                     }
                 }
             } catch (IOException ex) {
                 System.out.println(this.nombreCliente + " se ha desconectado.");
                 ServidorMulti.clientes.remove(this.nombreCliente);
+                String mensajeDesconexion = "<<SERVIDOR>>: " + this.nombreCliente + " se ha desconectado.";
+                for (UnCliente cliente : ServidorMulti.clientes.values()) {
+                    try {
+                        cliente.salida.writeUTF(mensajeDesconexion);
+                        cliente.salida.flush();
+                    } catch (IOException e) {
+                    }
+                }
                 break;
             }
         }
