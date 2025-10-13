@@ -24,20 +24,15 @@ public class ManejadorUsuarios {
         return usuarios;
     }
 
-    // Guarda un nuevo usuario en el archivo
     public static boolean registrarUsuario(String nombreUsuario, String contrasena) {
-        if (nombreUsuario == null || contrasena == null || nombreUsuario.trim().isEmpty() || contrasena.trim().isEmpty()) {
-            return false;
-        }
-
-        if (ServidorMulti.usuariosRegistrados.containsKey(nombreUsuario)) {
+        if (nombreUsuario == null || contrasena == null || nombreUsuario.trim().isEmpty() ||
+                contrasena.trim().isEmpty() || ServidorMulti.usuariosRegistrados.containsKey(nombreUsuario)) {
             return false;
         }
 
         try (BufferedWriter escritor = new BufferedWriter(new FileWriter(ARCHIVO_USUARIOS, true))) {
             escritor.write(nombreUsuario + ":" + contrasena);
             escritor.newLine();
-
             ServidorMulti.usuariosRegistrados.put(nombreUsuario, contrasena);
             return true;
         } catch (IOException e) {
