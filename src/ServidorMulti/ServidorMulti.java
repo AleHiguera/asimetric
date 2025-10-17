@@ -13,6 +13,7 @@ public class ServidorMulti {
 
     public static void main(String[] args) throws IOException {
         usuariosRegistrados = ManejadorUsuarios.cargarUsuarios();
+        ManejadorBloqueos.cargarBloqueos();
 
         ServerSocket servidorSocket = new ServerSocket(8080);
         System.out.println("Servidor iniciado en puerto 8080. Esperando clientes...");
@@ -29,6 +30,7 @@ public class ServidorMulti {
                 String[] partes = datosConexion.split(":", 3);
                 String accion = partes[0];
                 DataOutputStream salidaInicial = new DataOutputStream(s.getOutputStream());
+
                 if (accion.equals("INVITADO")) {
                     contadorInvitados++;
                     nombreFinal = "Invitado" + contadorInvitados;
@@ -68,6 +70,7 @@ public class ServidorMulti {
                     s.close();
                     continue;
                 }
+
                 if (clientes.containsKey(nombreFinal)) {
                     System.err.println("Error interno: Nombre duplicado detectado después de OK_.");
                     s.close();
@@ -83,9 +86,12 @@ public class ServidorMulti {
                 unCliente.salida.writeUTF("<<SERVIDOR>>: Bienvenido/a al chat, " + nombreFinal + "!");
                 unCliente.salida.writeUTF("<<SERVIDOR>>: Usa '@u1 Mensaje' o '@u1,u2 Mensaje' para enviar privados.");
 
-                if (unCliente.esInvitado) {
+                if (!unCliente.esInvitado) {
+                    unCliente.salida.writeUTF("<<SERVIDOR>>: Usa '/bloquear <usuario>' y '/desbloquear <usuario>' para gestionar bloqueos.");
+                } else {
                     unCliente.salida.writeUTF("<<SERVIDOR>>: Estás en MODO INVITADO. Tienes 3 mensajes gratis.");
                 }
+
                 unCliente.salida.flush();
 
             } catch (IOException e) {
