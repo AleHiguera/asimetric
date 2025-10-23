@@ -11,6 +11,16 @@ public class ServidorMulti {
     static HashMap<String, UnCliente> clientes = new HashMap<String, UnCliente>();
     static Map<String, String> usuariosRegistrados;
 
+    public static final Map<String, JuegoGato> juegosActivos = new HashMap<>();
+
+    public static final Map<String, String> propuestasPendientes = new HashMap<>();
+
+    public static final Map<String, String> propuestasRejuego = new HashMap<>();
+
+    public static String generarSessionId(String n1, String n2) {
+        return n1.compareTo(n2) < 0 ? n1 + "-" + n2 : n2 + "-" + n1;
+    }
+
     public static void main(String[] args) throws IOException {
         usuariosRegistrados = ManejadorUsuarios.cargarUsuarios();
         ManejadorBloqueos.cargarBloqueos();
@@ -87,16 +97,17 @@ public class ServidorMulti {
                 unCliente.salida.writeUTF("<<SERVIDOR>>: Usa '@u1 Mensaje' o '@u1,u2 Mensaje' para enviar privados.");
 
                 if (!unCliente.esInvitado) {
+                    unCliente.salida.writeUTF("<<SERVIDOR>>: Usa /jugar para iniciar una partida 'No Viudo'.");
                     unCliente.salida.writeUTF("<<SERVIDOR>>: Usa '/bloquear <usuario>' y '/desbloquear <usuario>' para gestionar bloqueos.");
                 } else {
-                    unCliente.salida.writeUTF("<<SERVIDOR>>: Estás en MODO INVITADO. Tienes 3 mensajes gratis.");
+                    unCliente.salida.writeUTF("<<SERVIDOR>>: Estás en MODO INVITADO. Tienes 3 mensajes gratis. (No puedes jugar al Gato)."); // Modificado
                 }
 
                 unCliente.salida.flush();
 
             } catch (IOException e) {
                 System.err.println("Error al manejar la conexión inicial: " + e.getMessage());
-                s.close();
+                if (s != null) s.close();
             }
         }
     }
