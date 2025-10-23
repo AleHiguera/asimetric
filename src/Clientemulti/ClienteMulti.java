@@ -62,7 +62,6 @@ public class ClienteMulti {
                 if (tipoRespuesta.startsWith("OK_")) {
                     nombreUsuario = partesRespuesta[1];
                     System.out.println("\n¡Conexión exitosa! Tu nombre es: " + nombreUsuario);
-
                     ParaMandar paraMandar = new ParaMandar(s);
                     Thread hiloParaMandar = new Thread(paraMandar);
                     hiloParaMandar.start();
