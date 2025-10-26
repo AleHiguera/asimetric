@@ -8,7 +8,6 @@ public class JuegoGato {
     private final char[][] tablero;
     private char turnoActual;
     private boolean activo;
-    private final String sessionId;
 
     public JuegoGato(UnCliente cliente1, UnCliente cliente2) {
         this.tablero = new char[3][3];
@@ -26,15 +25,8 @@ public class JuegoGato {
         }
 
         this.turnoActual = 'X';
-
-        String n1 = jugadorX.nombreCliente;
-        String n2 = jugadorO.nombreCliente;
-        this.sessionId = n1.compareTo(n2) < 0 ? n1 + "-" + n2 : n2 + "-" + n1;
     }
 
-    public String getSessionId() {
-        return sessionId;
-    }
     public UnCliente getJugadorX() {
         return jugadorX;
     }
@@ -73,7 +65,7 @@ public class JuegoGato {
         }
         sb.append("------------------------\n");
         sb.append("Turno actual: ").append(getJugadorActual().nombreCliente).append(" (").append(turnoActual).append(").");
-        sb.append("\nIngresa tu jugada como: Fila,Columna (ej: 0,2).");
+        sb.append("\nIngresa tu jugada como: Fila,Columna (ej: 0,2). Si tienes múltiples partidas, usa: Oponente Fila,Columna (ej: Pepe 0,2)."); // Mensaje ajustado
         return sb.toString();
     }
 
@@ -139,9 +131,8 @@ public class JuegoGato {
             perdedor.salida.writeUTF("<<< HAS PERDIDO >>>\n" + tableroFinal);
             perdedor.salida.writeUTF("<<NO VIUDO>>: La partida ha terminado. ¿Quieres jugar de nuevo contra " + ganador.nombreCliente + "? Responde: /si o /no");
         }
-
-        ganador.juegoActual = null;
-        perdedor.juegoActual = null;
+        ganador.juegosActivos.remove(perdedor.nombreCliente);
+        perdedor.juegosActivos.remove(ganador.nombreCliente);
 
         ServidorMulti.propuestasRejuego.put(ganador.nombreCliente, perdedor.nombreCliente);
         ServidorMulti.propuestasRejuego.put(perdedor.nombreCliente, ganador.nombreCliente);
@@ -150,22 +141,15 @@ public class JuegoGato {
 
         System.out.println("Partida No Viudo (" + jugadorX.nombreCliente + " vs " + jugadorO.nombreCliente + ") finalizada: " + resultado);
     }
-
-    public void forzarVictoria(UnCliente perdedor) throws IOException {
+    public void forzarVictoria(UnCliente perdedor, UnCliente ganador) throws IOException {
         if (!activo) return;
         activo = false;
-
-        UnCliente ganador = getOponente(perdedor);
 
         if (ganador != null) {
             ganador.salida.writeUTF("<<< ¡VICTORIA POR ABANDONO! >>>");
             ganador.salida.writeUTF("<<NO VIUDO>>: Tu oponente (" + perdedor.nombreCliente + ") se ha desconectado. ¡Ganas automáticamente!");
             ganador.salida.writeUTF("<<NO VIUDO>>: ¿Quieres iniciar una nueva partida con alguien más? Usa /gato <usuario>.");
+            ganador.juegosActivos.remove(perdedor.nombreCliente);
         }
-
-        perdedor.juegoActual = null;
-        if (ganador != null) ganador.juegoActual = null;
-
-        ServidorMulti.juegosActivos.remove(this.sessionId);
     }
 }
