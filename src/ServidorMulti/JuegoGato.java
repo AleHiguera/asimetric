@@ -13,8 +13,7 @@ public class JuegoGato {
     public JuegoGato(UnCliente cliente1, UnCliente cliente2) {
         this.tablero = new char[3][3];
         for (char[] row : tablero) {
-            Arrays.fill(row, ' ');
-        }
+            Arrays.fill(row, ' '); }
         this.activo = true;
 
         Random rand = new Random();
@@ -146,6 +145,8 @@ public class JuegoGato {
 
         ServidorMulti.propuestasRejuego.put(ganador.nombreCliente, perdedor.nombreCliente);
         ServidorMulti.propuestasRejuego.put(perdedor.nombreCliente, ganador.nombreCliente);
+
+        System.out.println("Propuestas de re-juego registradas.");
 
         System.out.println("Partida No Viudo (" + jugadorX.nombreCliente + " vs " + jugadorO.nombreCliente + ") finalizada: " + resultado);
     }
