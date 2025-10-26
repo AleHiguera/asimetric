@@ -16,19 +16,15 @@ public class UnCliente implements Runnable {
         this.salida = new DataOutputStream(s.getOutputStream());
         this.entrada = new DataInputStream(s.getInputStream());
         this.nombreCliente = nombre;
-        this.esInvitado = esInvitado;
-    }
+        this.esInvitado = esInvitado; }
     private void enviarServidor(String msg) throws IOException {
         this.salida.writeUTF("<<SERVIDOR>>: " + msg);
-        this.salida.flush();
-    }
+        this.salida.flush(); }
 
-    private UnCliente getOponente(JuegoGato juego) {
-        if (juego == null) return null;
+    private UnCliente getOponente(JuegoGato juego) { if (juego == null) return null;
         if (juego.getJugadorX() == this) return juego.getJugadorO();
         if (juego.getJugadorO() == this) return juego.getJugadorX();
-        return null;
-    }
+        return null;}
 
     private void manejarComandos(String mensaje) throws IOException {
         String[] partes = mensaje.trim().split(" ", 2);
@@ -36,41 +32,30 @@ public class UnCliente implements Runnable {
         boolean operacionExitosa = false;
 
         if (comando.equals("/gato")) {
-            if (this.esInvitado) {
-                enviarServidor("No puedes iniciar el 'No Viudo' en MODO INVITADO.");
-                return;
-            }
-            if (this.juegoActual != null) {
-                enviarServidor("Ya estás jugando una partida de 'No Viudo' con " + getOponente(this.juegoActual).nombreCliente + ".");
-                return;
-            }
-            if (partes.length != 2) {
-                enviarServidor("Uso incorrecto. Debe ser: /gato <nombre_usuario>");
-                return;
-            }
+            if (this.esInvitado) { enviarServidor("No puedes iniciar el 'No Viudo' en MODO INVITADO.");
+                return; }
+            if (this.juegoActual != null) { enviarServidor("Ya estás jugando una partida de 'No Viudo' con " + getOponente(this.juegoActual).nombreCliente + ".");
+                return; }
+            if (partes.length != 2) { enviarServidor("Uso incorrecto. Debe ser: /gato <nombre_usuario>");
+                return; }
             String nombreObjetivo = partes[1].trim();
             if (nombreObjetivo.equalsIgnoreCase(this.nombreCliente)) {
                 enviarServidor("No puedes invitarte a ti mismo. ¡Ya no serías 'No Viudo'!");
-                return;
-            }
+                return; }
             UnCliente objetivo = ServidorMulti.clientes.get(nombreObjetivo);
             if (objetivo == null) {
                 enviarServidor("El usuario '" + nombreObjetivo + "' no está conectado.");
-                return;
-            }
+                return; }
             if (objetivo.juegoActual != null) {
                 enviarServidor("El usuario '" + nombreObjetivo + "' ya está ocupado jugando.");
-                return;
-            }
+                return; }
             if (ManejadorBloqueos.esUsuarioBloqueado(this.nombreCliente, nombreObjetivo) ||
                     ManejadorBloqueos.estaBloqueadoPor(this.nombreCliente, nombreObjetivo)) {
                 enviarServidor("No puedes invitar a '" + nombreObjetivo + "' debido a un bloqueo mutuo o unidireccional.");
-                return;
-            }
+                return; }
             if (ServidorMulti.propuestasPendientes.containsKey(nombreObjetivo)) {
                 enviarServidor("El usuario '" + nombreObjetivo + "' ya tiene una propuesta pendiente. Espera a que responda.");
-                return;
-            }
+                return; }
             ServidorMulti.propuestasPendientes.put(nombreObjetivo, this.nombreCliente);
             enviarServidor("Propuesta enviada a '" + nombreObjetivo + "'. Esperando respuesta...");
             objetivo.salida.writeUTF("<<NO VIUDO>>: ¡" + this.nombreCliente + " te desafía a una partida de Gato 'No Viudo'!");
@@ -84,21 +69,18 @@ public class UnCliente implements Runnable {
 
             if (proponente == null) {
                 enviarServidor("No tienes ninguna propuesta de juego pendiente para responder.");
-                return;
-            }
+                return; }
 
             UnCliente clienteProponente = ServidorMulti.clientes.get(proponente);
             if (clienteProponente == null) {
                 enviarServidor("El proponente se ha desconectado. Intenta de nuevo.");
-                return;
-            }
+                return; }
 
             if (comando.equals("/aceptar")) {
                 if (clienteProponente.juegoActual != null) {
                     enviarServidor("El proponente ya comenzó otra partida. Rechazo automático.");
                     clienteProponente.salida.writeUTF("<<NO VIUDO>>: Tu propuesta fue rechazada automáticamente porque iniciaste otro juego.");
-                    return;
-                }
+                    return; }
 
                 JuegoGato nuevoJuego = new JuegoGato(this, clienteProponente);
                 ServidorMulti.juegosActivos.put(nuevoJuego.getSessionId(), nuevoJuego);
@@ -112,75 +94,92 @@ public class UnCliente implements Runnable {
             } else if (comando.equals("/rechazar")) {
                 enviarServidor("Has rechazado la propuesta de " + proponente + ".");
                 clienteProponente.salida.writeUTF("<<NO VIUDO>>: " + this.nombreCliente + " ha rechazado tu desafío.");
-                clienteProponente.salida.flush();
-            }
+                clienteProponente.salida.flush(); }
             return;
         }
         if (comando.equals("/si") || comando.equals("/no")) {
-            String oponenteNombre = ServidorMulti.propuestasRejuego.remove(this.nombreCliente);
+            String oponenteNombre = ServidorMulti.propuestasRejuego.get(this.nombreCliente);
 
             if (oponenteNombre == null) {
-                if (comando.equals("/si")) {
-                    enviarServidor("No tienes una partida para reiniciar. Usa /gato <usuario> para iniciar una nueva.");
-                } else {
-                    enviarServidor("Volviendo a actividades normales de chat.");
-                }
-                return;
-            }
-            ServidorMulti.propuestasRejuego.remove(oponenteNombre);
+                enviarServidor("No tienes una propuesta de re-juego pendiente.");
+                return; }
+            if (oponenteNombre.endsWith("/si") || oponenteNombre.endsWith("/no")) {
+                enviarServidor("Ya respondiste a la propuesta de re-juego. Espera la respuesta de tu oponente.");
+                return; }
 
             UnCliente oponente = ServidorMulti.clientes.get(oponenteNombre);
 
-            if (oponente == null || oponente.juegoActual != null) {
-                enviarServidor("Tu oponente se ha desconectado o está ocupado. Volviendo a chat normal.");
+            if (oponente == null) {
+                ServidorMulti.propuestasRejuego.remove(this.nombreCliente);
+                enviarServidor("Tu oponente se ha desconectado. Volviendo a chat normal.");
+                return; }
+            String estadoOponente = ServidorMulti.propuestasRejuego.get(oponenteNombre);
+
+            if (estadoOponente != null && (estadoOponente.endsWith("/si") || estadoOponente.endsWith("/no"))) {
+                if (comando.equals("/si") && estadoOponente.endsWith("/si")) {
+                    ServidorMulti.propuestasRejuego.remove(this.nombreCliente);
+                    ServidorMulti.propuestasRejuego.remove(oponenteNombre);
+
+                    if (this.juegoActual != null || oponente.juegoActual != null) {
+                        enviarServidor("Uno de los jugadores ya inició otro juego. Re-juego CANCELADO.");
+                        oponente.salida.writeUTF("<<NO VIUDO>>: El re-juego fue cancelado, uno de los jugadores inició otro juego.");
+                        return; }
+
+                    JuegoGato nuevoJuego = new JuegoGato(this, oponente);
+                    ServidorMulti.juegosActivos.put(nuevoJuego.getSessionId(), nuevoJuego);
+                    this.juegoActual = nuevoJuego;
+                    oponente.juegoActual = nuevoJuego;
+                    nuevoJuego.iniciarJuego();
+
+                    oponente.salida.writeUTF("<<NO VIUDO>>: ¡" + this.nombreCliente + " ha aceptado! Iniciando nuevo juego.");
+                    enviarServidor("¡Has aceptado! Iniciando nuevo juego con " + oponenteNombre + ".");
+
+                } else {
+                    ServidorMulti.propuestasRejuego.remove(this.nombreCliente);
+                    ServidorMulti.propuestasRejuego.remove(oponenteNombre);
+
+                    enviarServidor("El re-juego ha sido rechazado. Volviendo a chat normal.");
+                    oponente.salida.writeUTF("<<NO VIUDO>>: " + this.nombreCliente + " ha respondido. Re-juego CANCELADO. Volviendo a chat normal.");
+                }
                 return;
             }
-
             if (comando.equals("/si")) {
-                JuegoGato nuevoJuego = new JuegoGato(this, oponente);
-                ServidorMulti.juegosActivos.put(nuevoJuego.getSessionId(), nuevoJuego);
-                this.juegoActual = nuevoJuego;
-                oponente.juegoActual = nuevoJuego;
-                nuevoJuego.iniciarJuego();
-                oponente.salida.writeUTF("<<NO VIUDO>>: ¡" + this.nombreCliente + " ha aceptado jugar de nuevo!");
-                oponente.salida.flush();
+                ServidorMulti.propuestasRejuego.put(this.nombreCliente, oponenteNombre + "/si");
+                enviarServidor("Has aceptado el re-juego. Esperando la respuesta de " + oponenteNombre + "...");
+                oponente.salida.writeUTF("<<NO VIUDO>>: " + this.nombreCliente + " ACEPTÓ el re-juego. Responde /si o /no para iniciar.");
+            } else {
+                ServidorMulti.propuestasRejuego.remove(this.nombreCliente);
+                ServidorMulti.propuestasRejuego.remove(oponenteNombre);
 
-            } else if (comando.equals("/no")) {
                 enviarServidor("Has rechazado el re-juego. Volviendo a chat normal.");
-                oponente.salida.writeUTF("<<NO VIUDO>>: " + this.nombreCliente + " ha rechazado jugar de nuevo. Volviendo a chat normal.");
-                oponente.salida.flush();
+                oponente.salida.writeUTF("<<NO VIUDO>>: " + this.nombreCliente + " ha RECHAZADO jugar de nuevo. Volviendo a chat normal.");
             }
             return;
         }
         if (comando.equals("/jugar")) {
             enviarServidor("Usa /gato <usuario> para invitar a alguien a una partida de 'No Viudo'.");
             enviarServidor("Usuarios conectados: " + ServidorMulti.clientes.keySet());
-            return;
-        }
+            return; }
         if (comando.equals("/bloquear") || comando.equals("/desbloquear")) {
             if (this.esInvitado) {
                 this.salida.writeUTF("<<SERVIDOR>>: No puedes usar " + comando + " en MODO INVITADO. Inicia sesión o regístrate.");
                 this.salida.flush();
-                return;
-            }
+                return; }
             if (partes.length != 2) {
                 this.salida.writeUTF("<<SERVIDOR>>: Uso incorrecto. Debe ser: " + comando + " <nombre_usuario>");
                 this.salida.flush();
-                return;
-            }
+                return; }
 
             String nombreObjetivo = partes[1].trim();
 
             if (nombreObjetivo.equalsIgnoreCase(this.nombreCliente)) {
                 this.salida.writeUTF("<<SERVIDOR>>: No puedes bloquearte a ti mismo.");
                 this.salida.flush();
-                return;
-            }
+                return; }
             if (!ServidorMulti.usuariosRegistrados.containsKey(nombreObjetivo)) {
                 this.salida.writeUTF("<<SERVIDOR>>: Error, el usuario '" + nombreObjetivo + "' no existe para ser bloqueado/desbloqueado.");
                 this.salida.flush();
-                return;
-            }
+                return; }
 
             if (comando.equals("/bloquear")) {
                 if (ManejadorBloqueos.bloquearUsuario(this.nombreCliente, nombreObjetivo)) {
@@ -194,13 +193,11 @@ public class UnCliente implements Runnable {
                     this.salida.writeUTF("<<SERVIDOR>>: Has desbloqueado a '" + nombreObjetivo + "'.");
                     operacionExitosa = true;
                 } else {
-                    this.salida.writeUTF("<<SERVIDOR>>: El usuario '" + nombreObjetivo + "' no estaba bloqueado.");
-                }
+                    this.salida.writeUTF("<<SERVIDOR>>: El usuario '" + nombreObjetivo + "' no estaba bloqueado.");}
             }
             if (operacionExitosa) {
                 this.salida.writeUTF("<<SERVIDOR>>: Usa '@u1 Mensaje' o '@u1,u2 Mensaje' para enviar privados.");
-                this.salida.writeUTF("<<SERVIDOR>>: Usa '/bloquear <usuario>' y '/desbloquear <usuario>' para gestionar bloqueos.");
-            }
+                this.salida.writeUTF("<<SERVIDOR>>: Usa '/bloquear <usuario>' y '/desbloquear <usuario>' para gestionar bloqueos."); }
 
             this.salida.flush();
             return;
@@ -217,8 +214,7 @@ public class UnCliente implements Runnable {
         if (mensajesGratisRestantes <= 0) {
             this.salida.writeUTF("<<SERVIDOR>>: Agotaste tus 3 mensajes gratis. Escribe '/iniciar' o '/registro' para continuar.");
             this.salida.flush();
-            return true;
-        }
+            return true; }
         mensajesGratisRestantes--;
         String advertencia;
 
@@ -253,20 +249,15 @@ public class UnCliente implements Runnable {
                     if (cliente.juegoActual != null) {
                         this.salida.writeUTF("<<SERVIDOR>>: Tu mensaje a '" + nombreLimpio + "' no fue entregado. Está ocupado jugando una partida 'No Viudo'.");
                         enviado = true;
-                        continue;
-                    }
-
+                        continue; }
                     if (ManejadorBloqueos.esUsuarioBloqueado(remitente, nombreLimpio)) {
                         this.salida.writeUTF("<<SERVIDOR>>: Tu mensaje a '" + nombreLimpio + "' no fue entregado. Has sido bloqueado por ese usuario.");
                         enviado = true;
-                        continue;
-                    }
+                        continue; }
                     if (ManejadorBloqueos.estaBloqueadoPor(remitente, nombreLimpio)) {
                         this.salida.writeUTF("<<SERVIDOR>>: Tu mensaje a '" + nombreLimpio + "' no fue entregado. Lo tienes bloqueado.");
                         enviado = true;
-                        continue;
-                    }
-
+                        continue;}
 
                     cliente.salida.writeUTF(mensajeAGrupo);
                     cliente.salida.flush();
@@ -274,16 +265,12 @@ public class UnCliente implements Runnable {
                 }
             }
 
-            if (!enviado) {
-                System.err.println("Advertencia: No se encontró a ningún destinatario para: " + listaDestinatarios);
+            if (!enviado) { System.err.println("Advertencia: No se encontró a ningún destinatario para: " + listaDestinatarios);
                 this.salida.writeUTF("<<SERVIDOR>>: Error, no se encontró a los destinatarios: " + listaDestinatarios);
-                this.salida.flush();
-            }
+                this.salida.flush();}
 
-        } else {
-            this.salida.writeUTF("<<SERVIDOR>>: Formato de mensaje privado incorrecto. Debe ser: @nombre Mensaje.");
-            this.salida.flush();
-        }
+        } else { this.salida.writeUTF("<<SERVIDOR>>: Formato de mensaje privado incorrecto. Debe ser: @nombre Mensaje.");
+            this.salida.flush();}
     }
 
     private void transmitirMensajePublico(String mensajeConRemitente) throws IOException {
@@ -292,16 +279,12 @@ public class UnCliente implements Runnable {
         for (UnCliente cliente : ServidorMulti.clientes.values()){
             if (cliente != this) {
                 if (cliente.juegoActual != null) {
-                    continue;
-                }
+                    continue; }
 
                 if (ManejadorBloqueos.esUsuarioBloqueado(remitente, cliente.nombreCliente)) {
-                    continue;
-                }
+                    continue; }
                 if (ManejadorBloqueos.estaBloqueadoPor(remitente, cliente.nombreCliente)) {
-                    continue;
-                }
-
+                    continue; }
                 cliente.salida.writeUTF(mensajeConRemitente);
                 cliente.salida.flush();
             }
@@ -316,8 +299,7 @@ public class UnCliente implements Runnable {
                 this.juegoActual.forzarVictoria(this);
                 ServidorMulti.juegosActivos.remove(this.juegoActual.getSessionId());
             } catch (IOException e) {
-                System.err.println("Error al notificar victoria por desconexión.");
-            }
+                System.err.println("Error al notificar victoria por desconexión."); }
         }
 
         String mensajeDesconexion = "<<SERVIDOR>>: " + this.nombreCliente + " se ha desconectado.";
@@ -338,37 +320,28 @@ public class UnCliente implements Runnable {
             while (true) {
                 mensaje = entrada.readUTF();
                 if (this.juegoActual != null && !mensaje.startsWith("/")) {
-                    try {
-                        String[] coords = mensaje.trim().split(",");
+                    try { String[] coords = mensaje.trim().split(",");
                         int fila = Integer.parseInt(coords[0].trim());
                         int col = Integer.parseInt(coords[1].trim());
 
                         this.juegoActual.mover(this, fila, col);
 
                     } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-                        enviarServidor("Formato de jugada incorrecto. Usa 'Fila,Columna' (ej: 1,2).");
-                    }
+                        enviarServidor("Formato de jugada incorrecto. Usa 'Fila,Columna' (ej: 1,2)."); }
                     continue;
                 }
-                if (mensaje.startsWith("/")) {
-                    manejarComandos(mensaje);
-                    continue;
-                }
+                if (mensaje.startsWith("/")) { manejarComandos(mensaje);
+                    continue; }
 
                 String mensajeConRemitente = this.nombreCliente + ": " + mensaje;
 
-                if (manejarMensajeInvitado(mensaje)) {
-                    continue;
-                }
+                if (manejarMensajeInvitado(mensaje)) { continue; }
                 if (mensaje.startsWith("@")) {
                     manejarMensajePrivado(mensaje);
-                } else {
-                    transmitirMensajePublico(mensajeConRemitente);
-                }
+                } else { transmitirMensajePublico(mensajeConRemitente); }
             }
         } catch (IOException ex) {
             manejarDesconexion();
-
         }
     }
 }
