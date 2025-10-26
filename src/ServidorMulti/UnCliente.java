@@ -2,6 +2,8 @@ package ServidorMulti;
 import java.io.*;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 public class UnCliente implements Runnable {
 
@@ -10,7 +12,7 @@ public class UnCliente implements Runnable {
     public final String nombreCliente;
     public final boolean esInvitado;
     private int mensajesGratisRestantes = 3;
-    public JuegoGato juegoActual = null;
+    public final Map<String, JuegoGato> juegosActivos = new HashMap<>();
 
     UnCliente(Socket s, String nombre, boolean esInvitado) throws IOException {
         this.salida = new DataOutputStream(s.getOutputStream());
@@ -21,7 +23,8 @@ public class UnCliente implements Runnable {
         this.salida.writeUTF("<<SERVIDOR>>: " + msg);
         this.salida.flush(); }
 
-    private UnCliente getOponente(JuegoGato juego) { if (juego == null) return null;
+    private UnCliente getOponente(JuegoGato juego) {
+        if (juego == null) return null;
         if (juego.getJugadorX() == this) return juego.getJugadorO();
         if (juego.getJugadorO() == this) return juego.getJugadorX();
         return null;}
@@ -34,21 +37,30 @@ public class UnCliente implements Runnable {
         if (comando.equals("/gato")) {
             if (this.esInvitado) { enviarServidor("No puedes iniciar el 'No Viudo' en MODO INVITADO.");
                 return; }
-            if (this.juegoActual != null) { enviarServidor("Ya estás jugando una partida de 'No Viudo' con " + getOponente(this.juegoActual).nombreCliente + ".");
-                return; }
+
             if (partes.length != 2) { enviarServidor("Uso incorrecto. Debe ser: /gato <nombre_usuario>");
                 return; }
+
             String nombreObjetivo = partes[1].trim();
+
             if (nombreObjetivo.equalsIgnoreCase(this.nombreCliente)) {
                 enviarServidor("No puedes invitarte a ti mismo. ¡Ya no serías 'No Viudo'!");
                 return; }
+
+            if (this.juegosActivos.containsKey(nombreObjetivo)) {
+                enviarServidor("Ya estás jugando una partida de 'No Viudo' con " + nombreObjetivo + ".");
+                return;
+            }
+
             UnCliente objetivo = ServidorMulti.clientes.get(nombreObjetivo);
             if (objetivo == null) {
                 enviarServidor("El usuario '" + nombreObjetivo + "' no está conectado.");
                 return; }
-            if (objetivo.juegoActual != null) {
-                enviarServidor("El usuario '" + nombreObjetivo + "' ya está ocupado jugando.");
-                return; }
+
+            if (objetivo.juegosActivos.containsKey(this.nombreCliente)) {
+                enviarServidor("El usuario '" + nombreObjetivo + "' ya está ocupado jugando contigo.");
+                return;
+            }
             if (ManejadorBloqueos.esUsuarioBloqueado(this.nombreCliente, nombreObjetivo) ||
                     ManejadorBloqueos.estaBloqueadoPor(this.nombreCliente, nombreObjetivo)) {
                 enviarServidor("No puedes invitar a '" + nombreObjetivo + "' debido a un bloqueo mutuo o unidireccional.");
@@ -77,15 +89,16 @@ public class UnCliente implements Runnable {
                 return; }
 
             if (comando.equals("/aceptar")) {
-                if (clienteProponente.juegoActual != null) {
-                    enviarServidor("El proponente ya comenzó otra partida. Rechazo automático.");
-                    clienteProponente.salida.writeUTF("<<NO VIUDO>>: Tu propuesta fue rechazada automáticamente porque iniciaste otro juego.");
-                    return; }
+                if (clienteProponente.juegosActivos.containsKey(this.nombreCliente)) {
+                    enviarServidor("El proponente ya comenzó otra partida contigo por otro medio. Rechazo automático.");
+                    clienteProponente.salida.writeUTF("<<NO VIUDO>>: Tu propuesta fue rechazada automáticamente porque ya tienes un juego con " + this.nombreCliente + ".");
+                    return;
+                }
 
                 JuegoGato nuevoJuego = new JuegoGato(this, clienteProponente);
-                ServidorMulti.juegosActivos.put(nuevoJuego.getSessionId(), nuevoJuego);
-                this.juegoActual = nuevoJuego;
-                clienteProponente.juegoActual = nuevoJuego;
+                this.juegosActivos.put(proponente, nuevoJuego);
+                clienteProponente.juegosActivos.put(this.nombreCliente, nuevoJuego);
+
                 nuevoJuego.iniciarJuego();
 
                 clienteProponente.salida.writeUTF("<<NO VIUDO>>: ¡" + this.nombreCliente + " ha aceptado el desafío!");
@@ -120,15 +133,19 @@ public class UnCliente implements Runnable {
                     ServidorMulti.propuestasRejuego.remove(this.nombreCliente);
                     ServidorMulti.propuestasRejuego.remove(oponenteNombre);
 
-                    if (this.juegoActual != null || oponente.juegoActual != null) {
-                        enviarServidor("Uno de los jugadores ya inició otro juego. Re-juego CANCELADO.");
-                        oponente.salida.writeUTF("<<NO VIUDO>>: El re-juego fue cancelado, uno de los jugadores inició otro juego.");
-                        return; }
+                    // MODIFICACIÓN: Verificar si *ya* hay un juego entre *estos dos* (misma lógica que /aceptar)
+                    if (this.juegosActivos.containsKey(oponenteNombre) || oponente.juegosActivos.containsKey(this.nombreCliente)) {
+                        enviarServidor("Uno de los jugadores ya inició otro juego contigo. Re-juego CANCELADO.");
+                        oponente.salida.writeUTF("<<NO VIUDO>>: El re-juego fue cancelado, uno de los jugadores inició otro juego contigo.");
+                        return;
+                    }
 
                     JuegoGato nuevoJuego = new JuegoGato(this, oponente);
-                    ServidorMulti.juegosActivos.put(nuevoJuego.getSessionId(), nuevoJuego);
-                    this.juegoActual = nuevoJuego;
-                    oponente.juegoActual = nuevoJuego;
+
+                    // MODIFICACIÓN: Asignar el juego al mapa de cada cliente
+                    this.juegosActivos.put(oponenteNombre, nuevoJuego);
+                    oponente.juegosActivos.put(this.nombreCliente, nuevoJuego);
+
                     nuevoJuego.iniciarJuego();
 
                     oponente.salida.writeUTF("<<NO VIUDO>>: ¡" + this.nombreCliente + " ha aceptado! Iniciando nuevo juego.");
@@ -246,10 +263,6 @@ public class UnCliente implements Runnable {
                 String remitente = this.nombreCliente;
 
                 if (cliente != null) {
-                    if (cliente.juegoActual != null) {
-                        this.salida.writeUTF("<<SERVIDOR>>: Tu mensaje a '" + nombreLimpio + "' no fue entregado. Está ocupado jugando una partida 'No Viudo'.");
-                        enviado = true;
-                        continue; }
                     if (ManejadorBloqueos.esUsuarioBloqueado(remitente, nombreLimpio)) {
                         this.salida.writeUTF("<<SERVIDOR>>: Tu mensaje a '" + nombreLimpio + "' no fue entregado. Has sido bloqueado por ese usuario.");
                         enviado = true;
@@ -278,8 +291,6 @@ public class UnCliente implements Runnable {
 
         for (UnCliente cliente : ServidorMulti.clientes.values()){
             if (cliente != this) {
-                if (cliente.juegoActual != null) {
-                    continue; }
 
                 if (ManejadorBloqueos.esUsuarioBloqueado(remitente, cliente.nombreCliente)) {
                     continue; }
@@ -294,12 +305,21 @@ public class UnCliente implements Runnable {
     private void manejarDesconexion() {
         System.out.println(this.nombreCliente + " se ha desconectado.");
         ServidorMulti.clientes.remove(this.nombreCliente);
-        if (this.juegoActual != null) {
-            try {
-                this.juegoActual.forzarVictoria(this);
-                ServidorMulti.juegosActivos.remove(this.juegoActual.getSessionId());
-            } catch (IOException e) {
-                System.err.println("Error al notificar victoria por desconexión."); }
+
+        if (!this.juegosActivos.isEmpty()) {
+            for (Map.Entry<String, JuegoGato> entry : this.juegosActivos.entrySet()) {
+                JuegoGato juego = entry.getValue();
+                UnCliente oponente = ServidorMulti.clientes.get(entry.getKey());
+                try {
+                    juego.forzarVictoria(this, oponente);
+                } catch (IOException e) {
+                    System.err.println("Error al notificar victoria por desconexión en juego con " + entry.getKey());
+                }
+                if (oponente != null) {
+                    oponente.juegosActivos.remove(this.nombreCliente); // Limpiar el mapa del oponente
+                }
+            }
+            this.juegosActivos.clear();
         }
 
         String mensajeDesconexion = "<<SERVIDOR>>: " + this.nombreCliente + " se ha desconectado.";
@@ -319,26 +339,61 @@ public class UnCliente implements Runnable {
         try {
             while (true) {
                 mensaje = entrada.readUTF();
-                if (this.juegoActual != null && !mensaje.startsWith("/")) {
-                    try { String[] coords = mensaje.trim().split(",");
-                        int fila = Integer.parseInt(coords[0].trim());
-                        int col = Integer.parseInt(coords[1].trim());
 
-                        this.juegoActual.mover(this, fila, col);
-
-                    } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-                        enviarServidor("Formato de jugada incorrecto. Usa 'Fila,Columna' (ej: 1,2)."); }
+                // Manejo de comandos (tiene prioridad)
+                if (mensaje.startsWith("/")) {
+                    manejarComandos(mensaje);
                     continue;
                 }
-                if (mensaje.startsWith("/")) { manejarComandos(mensaje);
-                    continue; }
 
+                if (!this.juegosActivos.isEmpty() && !esInvitado) {
+
+                    String[] partes = mensaje.trim().split(" ", 2);
+
+                    if (this.juegosActivos.size() > 1 && partes.length == 2 && this.juegosActivos.containsKey(partes[0].trim())) {
+                        String nombreOponente = partes[0].trim();
+                        JuegoGato juego = this.juegosActivos.get(nombreOponente);
+                        try {
+                            String[] coords = partes[1].trim().split(",");
+                            int fila = Integer.parseInt(coords[0].trim());
+                            int col = Integer.parseInt(coords[1].trim());
+
+                            juego.mover(this, fila, col);
+
+                        } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+                            enviarServidor("Formato de jugada incorrecto. Usa 'Oponente Fila,Columna' (ej: Pepe 1,2).");
+                        }
+                        continue;
+
+                    } else if (this.juegosActivos.size() == 1) {
+                        // Solo un juego activo: formato 'Fila,Columna'
+                        JuegoGato juegoUnico = this.juegosActivos.values().iterator().next();
+                        try {
+                            String[] coords = mensaje.trim().split(",");
+                            int fila = Integer.parseInt(coords[0].trim());
+                            int col = Integer.parseInt(coords[1].trim());
+
+                            juegoUnico.mover(this, fila, col);
+
+                        } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
+                            enviarServidor("Formato de jugada incorrecto. Usa 'Fila,Columna' (ej: 1,2).");
+                        }
+                        continue;
+
+                    } else if (this.juegosActivos.size() > 1 && !this.juegosActivos.containsKey(partes[0].trim())) {
+                        // Intento de jugada en multijuego fallido, no se encontró el oponente
+                        enviarServidor("Tienes múltiples partidas activas. Para jugar, usa el formato: Oponente Fila,Columna (ej: Pepe 1,2).");
+                    }
+                }
                 String mensajeConRemitente = this.nombreCliente + ": " + mensaje;
 
-                if (manejarMensajeInvitado(mensaje)) { continue; }
+                if (manejarMensajeInvitado(mensaje)) { continue; } // Si es invitado y agotó mensajes, continúa sin enviar.
+
                 if (mensaje.startsWith("@")) {
                     manejarMensajePrivado(mensaje);
-                } else { transmitirMensajePublico(mensajeConRemitente); }
+                } else {
+                    transmitirMensajePublico(mensajeConRemitente);
+                }
             }
         } catch (IOException ex) {
             manejarDesconexion();
