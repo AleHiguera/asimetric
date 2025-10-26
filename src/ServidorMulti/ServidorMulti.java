@@ -11,15 +11,9 @@ public class ServidorMulti {
     static HashMap<String, UnCliente> clientes = new HashMap<String, UnCliente>();
     static Map<String, String> usuariosRegistrados;
 
-    public static final Map<String, JuegoGato> juegosActivos = new HashMap<>();
-
     public static final Map<String, String> propuestasPendientes = new HashMap<>();
 
     public static final Map<String, String> propuestasRejuego = new HashMap<>();
-
-    public static String generarSessionId(String n1, String n2) {
-        return n1.compareTo(n2) < 0 ? n1 + "-" + n2 : n2 + "-" + n1;
-    }
 
     public static void main(String[] args) throws IOException {
         usuariosRegistrados = ManejadorUsuarios.cargarUsuarios();
