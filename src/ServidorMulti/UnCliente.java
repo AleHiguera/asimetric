@@ -1,4 +1,4 @@
-package ServidorMulti;
+package ServidorMulti;import java.io.*;
 import java.io.*;
 import java.net.Socket;
 import java.util.Arrays;
@@ -61,6 +61,7 @@ public class UnCliente implements Runnable {
                 enviarServidor("El usuario '" + nombreObjetivo + "' ya está ocupado jugando contigo.");
                 return;
             }
+
             if (ManejadorBloqueos.esUsuarioBloqueado(this.nombreCliente, nombreObjetivo) ||
                     ManejadorBloqueos.estaBloqueadoPor(this.nombreCliente, nombreObjetivo)) {
                 enviarServidor("No puedes invitar a '" + nombreObjetivo + "' debido a un bloqueo mutuo o unidireccional.");
@@ -96,6 +97,7 @@ public class UnCliente implements Runnable {
                 }
 
                 JuegoGato nuevoJuego = new JuegoGato(this, clienteProponente);
+
                 this.juegosActivos.put(proponente, nuevoJuego);
                 clienteProponente.juegosActivos.put(this.nombreCliente, nuevoJuego);
 
@@ -133,7 +135,6 @@ public class UnCliente implements Runnable {
                     ServidorMulti.propuestasRejuego.remove(this.nombreCliente);
                     ServidorMulti.propuestasRejuego.remove(oponenteNombre);
 
-                    // MODIFICACIÓN: Verificar si *ya* hay un juego entre *estos dos* (misma lógica que /aceptar)
                     if (this.juegosActivos.containsKey(oponenteNombre) || oponente.juegosActivos.containsKey(this.nombreCliente)) {
                         enviarServidor("Uno de los jugadores ya inició otro juego contigo. Re-juego CANCELADO.");
                         oponente.salida.writeUTF("<<NO VIUDO>>: El re-juego fue cancelado, uno de los jugadores inició otro juego contigo.");
@@ -141,8 +142,6 @@ public class UnCliente implements Runnable {
                     }
 
                     JuegoGato nuevoJuego = new JuegoGato(this, oponente);
-
-                    // MODIFICACIÓN: Asignar el juego al mapa de cada cliente
                     this.juegosActivos.put(oponenteNombre, nuevoJuego);
                     oponente.juegosActivos.put(this.nombreCliente, nuevoJuego);
 
@@ -340,7 +339,6 @@ public class UnCliente implements Runnable {
             while (true) {
                 mensaje = entrada.readUTF();
 
-                // Manejo de comandos (tiene prioridad)
                 if (mensaje.startsWith("/")) {
                     manejarComandos(mensaje);
                     continue;
@@ -351,6 +349,7 @@ public class UnCliente implements Runnable {
                     String[] partes = mensaje.trim().split(" ", 2);
 
                     if (this.juegosActivos.size() > 1 && partes.length == 2 && this.juegosActivos.containsKey(partes[0].trim())) {
+                        // Múltiples juegos activos: formato 'Oponente Fila,Columna'
                         String nombreOponente = partes[0].trim();
                         JuegoGato juego = this.juegosActivos.get(nombreOponente);
                         try {
@@ -381,13 +380,13 @@ public class UnCliente implements Runnable {
                         continue;
 
                     } else if (this.juegosActivos.size() > 1 && !this.juegosActivos.containsKey(partes[0].trim())) {
-                        // Intento de jugada en multijuego fallido, no se encontró el oponente
                         enviarServidor("Tienes múltiples partidas activas. Para jugar, usa el formato: Oponente Fila,Columna (ej: Pepe 1,2).");
                     }
                 }
+
                 String mensajeConRemitente = this.nombreCliente + ": " + mensaje;
 
-                if (manejarMensajeInvitado(mensaje)) { continue; } // Si es invitado y agotó mensajes, continúa sin enviar.
+                if (manejarMensajeInvitado(mensaje)) { continue; }
 
                 if (mensaje.startsWith("@")) {
                     manejarMensajePrivado(mensaje);
