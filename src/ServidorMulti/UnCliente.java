@@ -1,5 +1,4 @@
 package ServidorMulti;import java.io.*;
-import java.io.*;
 import java.net.Socket;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -172,8 +171,68 @@ public class UnCliente implements Runnable {
             }
             return;
         }
+
+        // --- INICIO DE LÓGICA DE RANKING Y PUNTOS ---
+        if (comando.equals("/ranking")) {
+            if (this.esInvitado) {
+                enviarServidor("No puedes ver el ranking en MODO INVITADO.");
+                return;
+            }
+            String rankingStr = ManejadorRanking.getRankingGeneral();
+            enviarServidor(rankingStr);
+            return;
+        }
+
+        if (comando.equals("/puntos")) {
+            if (this.esInvitado) {
+                enviarServidor("No puedes ver estadísticas en MODO INVITADO.");
+                return;
+            }
+            String nombreObjetivo;
+            if (partes.length == 1) {
+                nombreObjetivo = this.nombreCliente; // Ver estadísticas propias
+            } else {
+                nombreObjetivo = partes[1].trim(); // Ver estadísticas de otro
+            }
+
+            if (!ServidorMulti.usuariosRegistrados.containsKey(nombreObjetivo)) {
+                enviarServidor("El usuario '" + nombreObjetivo + "' no existe.");
+                return;
+            }
+
+            EstadisticasJugador stats = ManejadorRanking.getEstadisticas(nombreObjetivo);
+            int totalPartidas = stats.getTotalPartidas();
+
+            if (totalPartidas == 0) {
+                enviarServidor("El usuario '" + nombreObjetivo + "' aún no ha jugado partidas registradas.");
+                return;
+            }
+
+            double porcentajeVictorias = (stats.victorias / (double) totalPartidas) * 100;
+            double porcentajeDerrotas = (stats.derrotas / (double) totalPartidas) * 100;
+            double porcentajeEmpates = (stats.empates / (double) totalPartidas) * 100;
+
+            String mensajePuntos = String.format(
+                    "\n--- Estadísticas de %s ---\n" +
+                            "Puntos Totales: %d\n" +
+                            "Victorias (2 pts): %d (%.2f%%)\n" +
+                            "Empates (1 pt): %d (%.2f%%)\n" +
+                            "Derrotas (0 pts): %d (%.2f%%)\n" +
+                            "Total Partidas: %d\n" +
+                            "----------------------------------",
+                    nombreObjetivo, stats.puntos, stats.victorias, porcentajeVictorias,
+                    stats.empates, porcentajeEmpates, stats.derrotas, porcentajeDerrotas, totalPartidas);
+
+            enviarServidor(mensajePuntos);
+            return;
+        }
+        // --- FIN DE LÓGICA DE RANKING Y PUNTOS ---
+
+
         if (comando.equals("/jugar")) {
             enviarServidor("Usa /gato <usuario> para invitar a alguien a una partida de 'No Viudo'.");
+            enviarServidor("Usa /ranking para ver el ranking general.");
+            enviarServidor("Usa /puntos <usuario> para ver tus estadísticas o las de otro.");
             enviarServidor("Usuarios conectados: " + ServidorMulti.clientes.keySet());
             return; }
         if (comando.equals("/bloquear") || comando.equals("/desbloquear")) {
@@ -223,7 +282,8 @@ public class UnCliente implements Runnable {
         if (!esInvitado) return false;
 
         String comando = mensaje.trim().toLowerCase();
-        if (comando.equals("/iniciar") || comando.equals("/registro") || comando.startsWith("/bloquear") || comando.startsWith("/desbloquear") || comando.startsWith("/gato") || comando.startsWith("/aceptar") || comando.startsWith("/rechazar") || comando.startsWith("/si") || comando.startsWith("/no") || comando.startsWith("/jugar")) {
+        // Se añaden /ranking y /puntos a la lista de comandos prohibidos para invitados
+        if (comando.equals("/iniciar") || comando.equals("/registro") || comando.startsWith("/bloquear") || comando.startsWith("/desbloquear") || comando.startsWith("/gato") || comando.startsWith("/aceptar") || comando.startsWith("/rechazar") || comando.startsWith("/si") || comando.startsWith("/no") || comando.startsWith("/jugar") || comando.startsWith("/ranking") || comando.startsWith("/puntos")) {
             return true;
         }
 
@@ -349,7 +409,6 @@ public class UnCliente implements Runnable {
                     String[] partes = mensaje.trim().split(" ", 2);
 
                     if (this.juegosActivos.size() > 1 && partes.length == 2 && this.juegosActivos.containsKey(partes[0].trim())) {
-                        // Múltiples juegos activos: formato 'Oponente Fila,Columna'
                         String nombreOponente = partes[0].trim();
                         JuegoGato juego = this.juegosActivos.get(nombreOponente);
                         try {
@@ -365,7 +424,6 @@ public class UnCliente implements Runnable {
                         continue;
 
                     } else if (this.juegosActivos.size() == 1) {
-                        // Solo un juego activo: formato 'Fila,Columna'
                         JuegoGato juegoUnico = this.juegosActivos.values().iterator().next();
                         try {
                             String[] coords = mensaje.trim().split(",");
