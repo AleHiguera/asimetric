@@ -18,6 +18,7 @@ public class ServidorMulti {
     public static void main(String[] args) throws IOException {
         usuariosRegistrados = ManejadorUsuarios.cargarUsuarios();
         ManejadorBloqueos.cargarBloqueos();
+        ManejadorRanking.cargarRanking();
 
         ServerSocket servidorSocket = new ServerSocket(8080);
         System.out.println("Servidor iniciado en puerto 8080. Esperando clientes...");
