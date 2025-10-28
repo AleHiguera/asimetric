@@ -2,6 +2,7 @@ package ServidorMulti;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Random;
+
 public class JuegoGato {
     private final UnCliente jugadorX;
     private final UnCliente jugadorO;
@@ -124,6 +125,8 @@ public class JuegoGato {
         activo = false;
         String tableroFinal = getTableroString();
 
+        boolean esEmpate = resultado.equals("¡EMPATE!"); // Determina si fue empate
+
         ganador.salida.writeUTF("<<< " + resultado + " >>>\n" + tableroFinal);
         ganador.salida.writeUTF("<<NO VIUDO>>: La partida ha terminado. ¿Quieres jugar de nuevo contra " + perdedor.nombreCliente + "? Responde: /si o /no");
 
@@ -131,6 +134,13 @@ public class JuegoGato {
             perdedor.salida.writeUTF("<<< HAS PERDIDO >>>\n" + tableroFinal);
             perdedor.salida.writeUTF("<<NO VIUDO>>: La partida ha terminado. ¿Quieres jugar de nuevo contra " + ganador.nombreCliente + "? Responde: /si o /no");
         }
+
+        if (esEmpate) {
+            ManejadorRanking.actualizarEstadisticas(ganador.nombreCliente, perdedor.nombreCliente, true);
+        } else {
+            ManejadorRanking.actualizarEstadisticas(ganador.nombreCliente, perdedor.nombreCliente, false);
+        }
+
         ganador.juegosActivos.remove(perdedor.nombreCliente);
         perdedor.juegosActivos.remove(ganador.nombreCliente);
 
@@ -141,11 +151,14 @@ public class JuegoGato {
 
         System.out.println("Partida No Viudo (" + jugadorX.nombreCliente + " vs " + jugadorO.nombreCliente + ") finalizada: " + resultado);
     }
+
     public void forzarVictoria(UnCliente perdedor, UnCliente ganador) throws IOException {
         if (!activo) return;
         activo = false;
 
         if (ganador != null) {
+            ManejadorRanking.actualizarEstadisticas(ganador.nombreCliente, perdedor.nombreCliente, false);
+
             ganador.salida.writeUTF("<<< ¡VICTORIA POR ABANDONO! >>>");
             ganador.salida.writeUTF("<<NO VIUDO>>: Tu oponente (" + perdedor.nombreCliente + ") se ha desconectado. ¡Ganas automáticamente!");
             ganador.salida.writeUTF("<<NO VIUDO>>: ¿Quieres iniciar una nueva partida con alguien más? Usa /gato <usuario>.");
