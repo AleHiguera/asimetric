@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.function.BiFunction;
 
 class EstadisticasJugador {
     int puntos;
@@ -27,7 +28,6 @@ class EstadisticasJugador {
 
 public class ManejadorRanking {
     private static final String ARCHIVO_RANKING = "ranking.txt";
-    // Mapa: NombreUsuario -> EstadisticasJugador
     public static Map<String, EstadisticasJugador> ranking = new HashMap<>();
 
     public static void cargarRanking() {
@@ -127,6 +127,49 @@ public class ManejadorRanking {
                     pos++, entry.getKey(), stats.puntos, stats.victorias, stats.empates, stats.derrotas));
         }
         sb.append("--------------------------------------------\n");
+        return sb.toString();
+    }
+
+    public static String getEstadisticasVs(String usuario1, String usuario2) {
+        BiFunction<Integer, Integer, String> getPercentage = (count, total) -> total > 0 ?
+                String.format(" (%.2f%%)", (count / (double) total) * 100) : " (0.00%)";
+
+        EstadisticasJugador stats1 = getEstadisticas(usuario1);
+        EstadisticasJugador stats2 = getEstadisticas(usuario2);
+
+        int totalPartidas1 = stats1.getTotalPartidas();
+        int totalPartidas2 = stats2.getTotalPartidas();
+
+        if (totalPartidas1 == 0 && totalPartidas2 == 0) {
+            return String.format("Ninguno de los usuarios (%s y %s) tiene partidas registradas.", usuario1, usuario2);
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("\n========================================================\n");
+        sb.append(String.format("          ESTADÍSTICAS COMPARADAS (%s vs %s)    \n", usuario1, usuario2));
+        sb.append("========================================================\n");
+
+        sb.append(String.format("%-20s | %20s | %20s\n", "MÉTRICA", usuario1, usuario2));
+        sb.append("---------------------|----------------------|----------------------\n");
+
+        sb.append(String.format("%-20s | %20d | %20d\n", "Puntos Totales", stats1.puntos, stats2.puntos));
+        sb.append(String.format("%-20s | %20d | %20d\n", "Total Partidas", totalPartidas1, totalPartidas2));
+        sb.append("---------------------|----------------------|----------------------\n");
+
+        sb.append(String.format("%-20s | %20s | %20s\n", "Victorias (2 pts)",
+                stats1.victorias + getPercentage.apply(stats1.victorias, totalPartidas1),
+                stats2.victorias + getPercentage.apply(stats2.victorias, totalPartidas2)
+        ));
+        sb.append(String.format("%-20s | %20s | %20s\n", "Empates (1 pt)",
+                stats1.empates + getPercentage.apply(stats1.empates, totalPartidas1),
+                stats2.empates + getPercentage.apply(stats2.empates, totalPartidas2)
+        ));
+        sb.append(String.format("%-20s | %20s | %20s\n", "Derrotas (0 pts)",
+                stats1.derrotas + getPercentage.apply(stats1.derrotas, totalPartidas1),
+                stats2.derrotas + getPercentage.apply(stats2.derrotas, totalPartidas2)
+        ));
+
+        sb.append("========================================================\n");
         return sb.toString();
     }
 }
