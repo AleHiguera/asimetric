@@ -1,4 +1,5 @@
 package ServidorMulti;import java.io.*;
+import java.io.*;
 import java.net.Socket;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -171,8 +172,34 @@ public class UnCliente implements Runnable {
             }
             return;
         }
+        if (comando.equals("/vs")) {
+            if (this.esInvitado) {
+                enviarServidor("No puedes usar /vs en MODO INVITADO.");
+                return;
+            }
 
-        // --- INICIO DE LÓGICA DE RANKING Y PUNTOS ---
+            if (partes.length != 2) {
+                enviarServidor("Uso incorrecto. Debe ser: /vs <usuario1> <usuario2>");
+                return;
+            }
+            String[] usuarios = partes[1].trim().split(" ", 2);
+            if (usuarios.length != 2) {
+                enviarServidor("Uso incorrecto. Debes proporcionar DOS nombres de usuario: /vs <usuario1> <usuario2>");
+                return;
+            }
+
+            String usuario1 = usuarios[0].trim();
+            String usuario2 = usuarios[1].trim();
+
+            if (usuario1.equalsIgnoreCase(usuario2)) {
+                enviarServidor("No puedes compararte contigo mismo. Usa /puntos.");
+                return;
+            }
+
+            String vsStr = ManejadorRanking.getEstadisticasVs(usuario1, usuario2);
+            enviarServidor(vsStr);
+            return;
+        }
         if (comando.equals("/ranking")) {
             if (this.esInvitado) {
                 enviarServidor("No puedes ver el ranking en MODO INVITADO.");
@@ -190,9 +217,9 @@ public class UnCliente implements Runnable {
             }
             String nombreObjetivo;
             if (partes.length == 1) {
-                nombreObjetivo = this.nombreCliente; // Ver estadísticas propias
+                nombreObjetivo = this.nombreCliente;
             } else {
-                nombreObjetivo = partes[1].trim(); // Ver estadísticas de otro
+                nombreObjetivo = partes[1].trim();
             }
 
             if (!ServidorMulti.usuariosRegistrados.containsKey(nombreObjetivo)) {
@@ -226,11 +253,10 @@ public class UnCliente implements Runnable {
             enviarServidor(mensajePuntos);
             return;
         }
-        // --- FIN DE LÓGICA DE RANKING Y PUNTOS ---
-
 
         if (comando.equals("/jugar")) {
             enviarServidor("Usa /gato <usuario> para invitar a alguien a una partida de 'No Viudo'.");
+            enviarServidor("Usa /vs <u1> <u2> para comparar estadísticas de dos usuarios."); // Nuevo comando añadido aquí
             enviarServidor("Usa /ranking para ver el ranking general.");
             enviarServidor("Usa /puntos <usuario> para ver tus estadísticas o las de otro.");
             enviarServidor("Usuarios conectados: " + ServidorMulti.clientes.keySet());
@@ -282,8 +308,7 @@ public class UnCliente implements Runnable {
         if (!esInvitado) return false;
 
         String comando = mensaje.trim().toLowerCase();
-        // Se añaden /ranking y /puntos a la lista de comandos prohibidos para invitados
-        if (comando.equals("/iniciar") || comando.equals("/registro") || comando.startsWith("/bloquear") || comando.startsWith("/desbloquear") || comando.startsWith("/gato") || comando.startsWith("/aceptar") || comando.startsWith("/rechazar") || comando.startsWith("/si") || comando.startsWith("/no") || comando.startsWith("/jugar") || comando.startsWith("/ranking") || comando.startsWith("/puntos")) {
+        if (comando.equals("/iniciar") || comando.equals("/registro") || comando.startsWith("/bloquear") || comando.startsWith("/desbloquear") || comando.startsWith("/gato") || comando.startsWith("/aceptar") || comando.startsWith("/rechazar") || comando.startsWith("/si") || comando.startsWith("/no") || comando.startsWith("/jugar") || comando.startsWith("/ranking") || comando.startsWith("/puntos") || comando.startsWith("/vs")) {
             return true;
         }
 
