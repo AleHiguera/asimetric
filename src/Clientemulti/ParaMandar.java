@@ -5,33 +5,51 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
 
-public class ParaMandar implements Runnable{
-    final BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
-    final DataOutputStream salida ;
-    private final Socket socketCliente;
-
+public class ParaMandar implements Runnable {
+    private final BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
+    private final DataOutputStream salida;
+    private final Socket socket;
     public ParaMandar(Socket s) throws IOException {
+        this.socket = s;
         this.salida = new DataOutputStream(s.getOutputStream());
-        this.socketCliente = s;
+
     }
 
     @Override
     public void run() {
-        while (true) {
-            try {
-                String mensaje = teclado.readLine();
-                String comando = mensaje.trim().toLowerCase();
+        try {
+            enviarBucle();
+        } catch (IOException e) {
+            System.out.println("\n[INFO] Desconectado: Error de envío o socket cerrado.");
+        } finally {
+            cerrarSocketSilenciosamente();
+        }
+    }
 
-                if (comando.equals("/iniciar") || comando.equals("/registro")) {
-                    System.out.println("\n[COMANDO DETECTADO] Cerrando conexión para volver al menú de autenticación...");
-                    if (!socketCliente.isClosed()) socketCliente.close();
-                    break;
-                }
+    private void enviarBucle() throws IOException {
+        String mensaje;
+        while (!socket.isClosed()) {
+            System.out.print("Tú: ");
+            mensaje = teclado.readLine();
 
-                salida.writeUTF(mensaje);
-            } catch (IOException ex) {
+            if (mensaje == null || mensaje.equalsIgnoreCase("/exit")) {
                 break;
             }
+            enviarMensaje(mensaje);
         }
+    }
+
+    private void enviarMensaje(String mensaje) throws IOException {
+        if (mensaje != null) {
+            salida.writeUTF(mensaje);
+        }
+    }
+    private void cerrarSocketSilenciosamente() {
+        try {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+
+        } catch (IOException ignored) {}
     }
 }
