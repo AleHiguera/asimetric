@@ -33,6 +33,26 @@ public class SQLiteManager {
                     "derrotas INTEGER DEFAULT 0," +
                     "empates INTEGER DEFAULT 0)");
 
+            // Tabla Grupos
+            stmt.execute("CREATE TABLE IF NOT EXISTS Grupos (" +
+                    "nombre TEXT PRIMARY KEY NOT NULL," +
+                    "creador TEXT NOT NULL)");
+
+            // Tabla GrupoMiembros
+            stmt.execute("CREATE TABLE IF NOT EXISTS GrupoMiembros (" +
+                    "nombre_grupo TEXT NOT NULL," +
+                    "usuario TEXT NOT NULL," +
+                    "PRIMARY KEY (nombre_grupo, usuario)," +
+                    "FOREIGN KEY (nombre_grupo) REFERENCES Grupos(nombre))");
+
+            // Tabla HistorialMensajes
+            stmt.execute("CREATE TABLE IF NOT EXISTS HistorialMensajes (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "nombre_grupo TEXT NOT NULL," +
+                    "mensaje TEXT NOT NULL," +
+                    "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                    "FOREIGN KEY (nombre_grupo) REFERENCES Grupos(nombre))");
+
             System.out.println("Base de datos SQLite inicializada correctamente.");
 
         } catch (SQLException e) {
