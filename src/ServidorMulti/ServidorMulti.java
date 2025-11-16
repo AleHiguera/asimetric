@@ -7,6 +7,8 @@ public class ServidorMulti {
     private static final int PUERTO = 8080;
 
     public static void main(String[] args) {
+        SQLiteManager.inicializarDB();
+
         try (ServerSocket servidorSocket = new ServerSocket(PUERTO)) {
             System.out.println("Servidor iniciado en el puerto " + PUERTO);
             while (true) {
