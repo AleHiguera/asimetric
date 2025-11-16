@@ -2,7 +2,8 @@ package ServidorMulti.Grupos;
 import ServidorMulti.ClienteAuthManager;
 import ServidorMulti.ClienteManager;
 import ServidorMulti.UnCliente;
-import ServidorMulti.SQLiteManager; // Nueva importación de SQLiteManager
+import ServidorMulti.SQLiteManager;
+import ServidorMulti.BlockListManager;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -264,10 +265,14 @@ public class GroupManager {
             pstmt.executeUpdate();
 
             Set<String> miembros = obtenerMiembrosGrupo(nombreGrupo);
-            for (String miembro : miembros) {
-                UnCliente cliente = ClienteManager.obtenerClientePorNombre(miembro);
-                if (cliente != null) {
-                    cliente.enviarMensaje(mensajeCompleto);
+            for (String receptor : miembros) {
+                UnCliente clienteReceptor = ClienteManager.obtenerClientePorNombre(receptor);
+
+                boolean estaBloqueadoPorReceptor = BlockListManager.estaBloqueado(receptor, remitente);
+                boolean elReceptorEstaBloqueado = BlockListManager.estaBloqueado(remitente, receptor);
+
+                if (clienteReceptor != null && !estaBloqueadoPorReceptor && !elReceptorEstaBloqueado) {
+                    clienteReceptor.enviarMensaje(mensajeCompleto);
                 }
             }
 
@@ -283,7 +288,7 @@ public class GroupManager {
                 .sorted()
                 .forEach(nombre -> {
                     Grupo g = grupos.get(nombre);
-                    int numMiembros = obtenerMiembrosGrupo(nombre).size(); // Se obtiene el número de miembros de la DB
+                    int numMiembros = obtenerMiembrosGrupo(nombre).size();
                     sb.append(String.format(" -> %s (Creador: %s, Miembros: %d)\n",
                             nombre, g.getCreador(), numMiembros));
                 });
@@ -309,7 +314,7 @@ public class GroupManager {
         final int LIMITE_MENSAJES = 10;
         String sql = "SELECT mensaje FROM HistorialMensajes WHERE nombre_grupo = ? ORDER BY id DESC LIMIT ?";
 
-        List<String> mensajes = new LinkedList<>(); // Usar LinkedList para inserción al inicio
+        List<String> mensajes = new LinkedList<>();
         int totalMensajes = 0;
 
         try (Connection conn = SQLiteManager.getConnection();
@@ -320,7 +325,7 @@ public class GroupManager {
 
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
-                mensajes.add(0, rs.getString("mensaje")); // Añadir al inicio para mantener el orden cronológico
+                mensajes.add(0, rs.getString("mensaje"));
                 totalMensajes++;
             }
         } catch (SQLException e) {
