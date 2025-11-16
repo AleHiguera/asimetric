@@ -23,6 +23,18 @@ public class RankingData implements Serializable {
     public int getEmpates() { return empates; }
     public int getPuntos() { return puntos; }
     public int getTotalPartidas() { return victorias + derrotas + empates; }
+    public void setPuntos(int puntos) {
+        this.puntos = puntos;
+    }
+    public void setVictorias(int victorias) {
+        this.victorias = victorias;
+    }
+    public void setDerrotas(int derrotas) {
+        this.derrotas = derrotas;
+    }
+    public void setEmpates(int empates) {
+        this.empates = empates;
+    }
     public void registrarVictoria(int puntos) {
         this.victorias++;
         this.puntos += puntos;

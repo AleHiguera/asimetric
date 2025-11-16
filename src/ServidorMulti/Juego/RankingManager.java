@@ -1,6 +1,11 @@
 package ServidorMulti.Juego;
 import ServidorMulti.ClienteAuthManager;
-import java.io.*;
+import ServidorMulti.SQLiteManager;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.List;
@@ -8,52 +13,81 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class RankingManager {
-    private static final String RANKING_FILE = "ranking.dat";
     private static Map<String, RankingData> stats = new ConcurrentHashMap<>();
     private static final int PUNTOS_VICTORIA = 2;
     private static final int PUNTOS_EMPATE = 1;
     private static final int PUNTOS_DERROTA = 0;
-    static {cargarEstadisticas();}
+
+    static {
+        cargarEstadisticasDesdeDB();
+    }
+
     private RankingManager() {}
-    private static void cargarEstadisticas() {
-        File file = new File(RANKING_FILE);
-        if (!file.exists()) return;
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(RANKING_FILE))) {
-            stats = (Map<String, RankingData>) ois.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            System.err.println("Error al cargar el ranking: " + e.getMessage());
-            stats = new ConcurrentHashMap<>();
+    private static void cargarEstadisticasDesdeDB() {
+        String sql = "SELECT usuario, puntos, victorias, derrotas, empates FROM Rankings";
+        try (Connection conn = SQLiteManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                String usuario = rs.getString("usuario");
+                RankingData data = new RankingData(usuario);
+                data.setPuntos(rs.getInt("puntos"));
+                data.setVictorias(rs.getInt("victorias"));
+                data.setDerrotas(rs.getInt("derrotas"));
+                data.setEmpates(rs.getInt("empates"));
+                stats.put(usuario, data);
+            }
+            System.out.println("[DB] Ranking cargado desde SQLite. Total: " + stats.size() + " usuarios.");
+        } catch (SQLException e) {
+            System.err.println("[DB] Error al cargar ranking desde DB: " + e.getMessage());
         }
     }
+    private static void guardarEstadisticas(RankingData data) throws IOException {
+        String sql = "INSERT OR REPLACE INTO Rankings (usuario, puntos, victorias, derrotas, empates) " +
+                "VALUES (?, ?, ?, ?, ?)";
+        try (Connection conn = SQLiteManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-    private static void guardarEstadisticas() throws IOException {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(RANKING_FILE))) {
-            oos.writeObject(stats);
-        } catch (IOException e) {
-            throw e;
+            pstmt.setString(1, data.getNombreUsuario());
+            pstmt.setInt(2, data.getPuntos());
+            pstmt.setInt(3, data.getVictorias());
+            pstmt.setInt(4, data.getDerrotas());
+            pstmt.setInt(5, data.getEmpates());
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            System.err.println("[DB] Error al guardar ranking en DB: " + e.getMessage());
+            // Se lanza IOException para manejar el error de persistencia en el flujo de juego.
+            throw new IOException("Fallo al guardar ranking en DB", e);
         }
     }
-
     private static RankingData obtenerOCrearEstadisticas(String nombre) {
-        if (!ClienteAuthManager.existeUsuario(nombre)) {
-            return stats.computeIfAbsent(nombre, RankingData::new);
-        }
         return stats.computeIfAbsent(nombre, RankingData::new);
     }
+
     public static void actualizarEstadisticas(String ganador, String perdedor) throws IOException {
         RankingData dataGanador = obtenerOCrearEstadisticas(ganador);
         RankingData dataPerdedor = obtenerOCrearEstadisticas(perdedor);
+
         dataGanador.registrarVictoria(PUNTOS_VICTORIA);
         dataPerdedor.registrarDerrota(PUNTOS_DERROTA);
-        guardarEstadisticas();
+
+        // Persistencia de ambos usuarios en la DB
+        guardarEstadisticas(dataGanador);
+        guardarEstadisticas(dataPerdedor);
     }
 
     public static void actualizarEstadisticasEmpate(String j1, String j2) throws IOException {
         RankingData dataJ1 = obtenerOCrearEstadisticas(j1);
         RankingData dataJ2 = obtenerOCrearEstadisticas(j2);
+
         dataJ1.registrarEmpate(PUNTOS_EMPATE);
         dataJ2.registrarEmpate(PUNTOS_EMPATE);
-        guardarEstadisticas();
+
+        // Persistencia de ambos usuarios en la DB
+        guardarEstadisticas(dataJ1);
+        guardarEstadisticas(dataJ2);
     }
 
     public static String generarRankingGeneral(String jugadorActual) {
