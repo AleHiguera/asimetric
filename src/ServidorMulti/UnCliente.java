@@ -190,7 +190,17 @@ public class UnCliente implements Runnable {
         } else {
             enviarMensaje("[ERROR RANKING] Subcomando no reconocido.");}
     }
+
+    // *** INICIO DE LA MODIFICACIÓN 1: Bloquear Re-autenticación de usuarios reales ***
     private void manejarComandoAutenticacion(String comando) throws IOException {
+        // Si el displayName ya no comienza con "Invitado #", significa que un usuario real
+        // ya ha tomado el control de la conexión y no se debe permitir re-autenticar.
+        if (this.estaAutenticado && !this.displayName.startsWith("Invitado #")) {
+            enviarMensaje("[ADVERTENCIA] Ya has iniciado sesión o te has registrado como: " + this.displayName + ".");
+            enviarMensaje("[ADVERTENCIA] Para cambiar de usuario, debes usar el comando **/exit** para cerrar la conexión y volver a conectarte.");
+            return;
+        }
+
         String[] partes = comando.split(" ", 3);
         if (partes.length != 3) {
             enviarMensaje("[ERROR] Formato incorrecto. Uso: /comando <usuario> <pass>");
@@ -221,11 +231,19 @@ public class UnCliente implements Runnable {
     }
 
     private void establecerAutenticacion(String user) throws IOException {
+        // Chequeo A: ¿Ya hay otro cliente activo con el nombre del nuevo usuario?
         if (ClienteManager.obtenerClientePorNombre(user) != null) {
             enviarMensaje("[ERROR] El usuario ya está conectado.");
             return;}
 
         String oldDisplayName = this.displayName;
+
+        if (this.estaAutenticado && !oldDisplayName.startsWith("Invitado #")) {
+            enviarMensaje("[ERROR] No se permite la transferencia de identidad de un usuario registrado a otro. Debes desconectarte primero.");
+            return;
+        }
+
+
         this.estaAutenticado = true;
         this.displayName = user;
         this.accionesRealizadas = 0;
