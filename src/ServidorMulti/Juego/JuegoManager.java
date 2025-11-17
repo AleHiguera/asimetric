@@ -1,6 +1,7 @@
 package ServidorMulti.Juego;
 import ServidorMulti.ClienteManager;
 import ServidorMulti.UnCliente;
+import ServidorMulti.BlockListManager;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,9 +33,19 @@ public class JuegoManager {
             return manejarError(proponente, "Ya enviaste una invitación a " + invitacionesPendientes.get(proponente) + ". Espera su respuesta.");
         }
 
+        // --- INICIO DE VERIFICACIÓN DE BLOQUEO ---
+        if (BlockListManager.estaBloqueado(oponente, proponente)) {
+            return manejarError(proponente, oponente + " te tiene bloqueado. No puedes invitarlo.");
+        }
+        if (BlockListManager.estaBloqueado(proponente, oponente)) {
+            return manejarError(proponente, "Tienes bloqueado a " + oponente + ". Desbloquéalo para jugar.");
+        }
+        // --- FIN DE VERIFICACIÓN DE BLOQUEO ---
+
         UnCliente clienteOponente = ClienteManager.obtenerClientePorNombre(oponente);
         if (clienteOponente == null) {
             return manejarError(proponente, "El usuario " + oponente + " no está conectado.");}
+
         registrarYNotificarInvitacion(proponente, oponente);
         return true;
     }
