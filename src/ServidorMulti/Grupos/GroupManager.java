@@ -266,6 +266,10 @@ public class GroupManager {
 
             Set<String> miembros = obtenerMiembrosGrupo(nombreGrupo);
             for (String receptor : miembros) {
+                if (receptor.equals(remitente)) {
+                    continue;
+                }
+
                 UnCliente clienteReceptor = ClienteManager.obtenerClientePorNombre(receptor);
 
                 boolean estaBloqueadoPorReceptor = BlockListManager.estaBloqueado(receptor, remitente);
