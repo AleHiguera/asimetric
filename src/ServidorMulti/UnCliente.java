@@ -8,6 +8,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.regex.Pattern;
+import ServidorMulti.Juego.JuegoGato;
 
 public class UnCliente implements Runnable {
     private final Socket socket;
@@ -191,10 +192,7 @@ public class UnCliente implements Runnable {
             enviarMensaje("[ERROR RANKING] Subcomando no reconocido.");}
     }
 
-    // *** INICIO DE LA MODIFICACIÓN 1: Bloquear Re-autenticación de usuarios reales ***
     private void manejarComandoAutenticacion(String comando) throws IOException {
-        // Si el displayName ya no comienza con "Invitado #", significa que un usuario real
-        // ya ha tomado el control de la conexión y no se debe permitir re-autenticar.
         if (this.estaAutenticado && !this.displayName.startsWith("Invitado #")) {
             enviarMensaje("[ADVERTENCIA] Ya has iniciado sesión o te has registrado como: " + this.displayName + ".");
             enviarMensaje("[ADVERTENCIA] Para cambiar de usuario, debes usar el comando **/exit** para cerrar la conexión y volver a conectarte.");
@@ -319,27 +317,33 @@ public class UnCliente implements Runnable {
             JuegoManager.rechazar(objetivo, displayName);}
     }
 
+
     private boolean esMovimientoGato(String mensaje) {
         return JuegoManager.obtenerPartida(displayName) != null &&
-                Pattern.compile("^\\s*\\d+\\s+contra\\s+\\w+\\s*$").matcher(mensaje).matches();}
+                Pattern.compile("^\\s*[0-8]\\s*$").matcher(mensaje).matches();}
+
 
     private void manejarMovimientoGato(String mensaje) throws IOException {
-        String[] partes = mensaje.trim().split("\\s+contra\\s+");
+        JuegoGato partida = JuegoManager.obtenerPartida(displayName);
+        if (partida == null) {
+            enviarMensaje("[ERROR GATO] No tienes una partida activa.");
+            return;
+        }
 
-        if (partes.length != 2) {
-            enviarMensaje("[ERROR GATO] Formato de movimiento incorrecto. Usa: [posicion] contra [oponente]");
-            return;}
+        String oponente = partida.getOponente(displayName);
 
         try {
-            int posicion = Integer.parseInt(partes[0].trim());
-            String oponente = partes[1].trim();
+            String posicionStr = mensaje.trim();
+            int posicion = Integer.parseInt(posicionStr);
 
             if (posicion >= 0 && posicion <= 8) {
                 JuegoManager.procesarMovimiento(displayName, oponente, posicion);
             } else {
-                enviarMensaje("[ERROR GATO] La posición debe ser entre 0 y 8.");}
+                enviarMensaje("[ERROR GATO] La posición debe ser entre 0 y 8.");
+            }
         } catch (NumberFormatException e) {
-            enviarMensaje("[ERROR GATO] La posición debe ser un número (0-8).");}
+            enviarMensaje("[ERROR GATO] La posición debe ser un número (0-8).");
+        }
     }
     private void manejarMensajePublico(String mensaje) throws IOException {
         GroupManager.enviarMensajeGrupo(displayName, mensaje);
