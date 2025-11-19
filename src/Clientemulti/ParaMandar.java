@@ -9,10 +9,10 @@ public class ParaMandar implements Runnable {
     private final BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
     private final DataOutputStream salida;
     private final Socket socket;
+
     public ParaMandar(Socket s) throws IOException {
         this.socket = s;
         this.salida = new DataOutputStream(s.getOutputStream());
-
     }
 
     @Override
@@ -35,7 +35,16 @@ public class ParaMandar implements Runnable {
             if (mensaje == null || mensaje.equalsIgnoreCase("/exit")) {
                 break;
             }
-            enviarMensaje(mensaje);
+
+            try {
+                enviarMensaje(mensaje);
+            } catch (IOException e) {
+                if (!socket.isClosed()) {
+                    System.err.println(" \n***ERROR DE CONEXION: Fallo al enviar mensaje. Cerrando conexión. ***");
+                    cerrarSocketSilenciosamente();
+                }
+                break;
+            }
         }
     }
 
@@ -44,12 +53,12 @@ public class ParaMandar implements Runnable {
             salida.writeUTF(mensaje);
         }
     }
+
     private void cerrarSocketSilenciosamente() {
         try {
             if (socket != null && !socket.isClosed()) {
                 socket.close();
             }
-
         } catch (IOException ignored) {}
     }
 }
