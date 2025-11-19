@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.net.Socket;
 import java.util.regex.Pattern;
 import ServidorMulti.Juego.JuegoGato;
+import java.util.Set;
+import java.util.Collections;
 
 public class UnCliente implements Runnable {
     private final Socket socket;
@@ -19,6 +21,19 @@ public class UnCliente implements Runnable {
     private int accionesRealizadas = 0;
     private boolean estaAutenticado = false;
     private static final int LIMITE_ACCIONES = 3;
+
+    private static final Set<String> COMANDOS_PROHIBIDOS = Set.of(
+            "/register", "/login", "/exit", "/block", "/unblock",
+            "/gato", "/aceptar", "/rechazar", "/ranking", "/grupo"
+    );
+
+    public static boolean esNombreComando(String nombre) {
+        if (nombre.startsWith("/")) {
+            String comandoBase = nombre.split("\\s+")[0].toLowerCase();
+            return COMANDOS_PROHIBIDOS.contains(comandoBase);
+        }
+        return false;
+    }
 
     public UnCliente(Socket s) throws IOException {
         this.socket = s;
@@ -207,6 +222,11 @@ public class UnCliente implements Runnable {
         String user = partes[1];
         String pass = partes[2];
 
+        if (UnCliente.esNombreComando(user)) {
+            enviarMensaje("[ERROR] El nombre de usuario '" + user + "' está reservado y no puede ser usado.");
+            return;
+        }
+
         if (comando.startsWith("/register")) {
             procesarRegistro(user, pass);
         } else if (comando.startsWith("/login")) {
@@ -229,7 +249,6 @@ public class UnCliente implements Runnable {
     }
 
     private void establecerAutenticacion(String user) throws IOException {
-        // Chequeo A: ¿Ya hay otro cliente activo con el nombre del nuevo usuario?
         if (ClienteManager.obtenerClientePorNombre(user) != null) {
             enviarMensaje("[ERROR] El usuario ya está conectado.");
             return;}
